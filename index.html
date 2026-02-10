@@ -1,218 +1,132 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>Smart Monitor Dashboard</title>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-  <!-- Icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1 {
-      text-align: center;
-    }
-
-    .status-bar {
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 18px;
-    }
-
-    .online {
-      color: green;
-      font-weight: bold;
-    }
-
-    .offline {
-      color: red;
-      font-weight: bold;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 15px;
-    }
-
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 15px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      text-align: center;
-    }
-
-    .card i {
-      font-size: 40px;
-    }
-
-    .ok {
-      color: green;
-    }
-
-    .alert {
-      color: red;
-    }
-
-    .btn {
-      padding: 12px;
-      font-size: 16px;
-      width: 100%;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn-on {
-      background: red;
-      color: white;
-    }
-
-    .btn-off {
-      background: green;
-      color: white;
-    }
-
-    .device {
-      font-size: 14px;
-      text-align: left;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Haven Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); }
+        .stat-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .status-indicator { width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .bg-normal { background-color: #28a745; color: white; }
+        .bg-alert { background-color: #dc3545; color: white; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        #pir-status-box { padding: 20px; border-radius: 10px; font-weight: bold; text-align: center; }
+    </style>
 </head>
 <body>
 
-<h1>🌱 Smart Plant & Security Monitor</h1>
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark"><i class="fas fa-home-alt me-2"></i>Smart Haven</h2>
+            <p class="text-muted mb-0"><span class="status-indicator bg-success"></span> Connected to ESP8266</p>
+        </div>
+        <div class="text-end">
+            <p id="time" class="small text-muted mb-0"></p>
+        </div>
+    </div>
 
-<div class="status-bar">
-  Status: <span id="connStatus" class="offline">🔴 Offline</span><br>
-  Uptime: <span id="uptime">00:00:00</span>
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="card text-center p-4">
+                <i class="fas fa-thermometer-half stat-icon text-danger"></i>
+                <h6 class="text-muted">อุณหภูมิ</h6>
+                <h2 id="temp-val">-- °C</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center p-4">
+                <i class="fas fa-tint stat-icon text-primary"></i>
+                <h6 class="text-muted">ความชื้นอากาศ</h6>
+                <h2 id="humi-val">-- %</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center p-4">
+                <i class="fas fa-seedling stat-icon text-success"></i>
+                <h6 class="text-muted">ความชื้นในดิน</h6>
+                <h2 id="soil-val">--</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center p-4">
+                <i id="mute-icon" class="fas fa-volume-up stat-icon text-warning"></i>
+                <h6 class="text-muted">ควบคุมเสียงแจ้งเตือน</h6>
+                <div class="btn-group mt-2">
+                    <button onclick="setMute(false)" class="btn btn-outline-success btn-sm">เปิด</button>
+                    <button onclick="setMute(true)" class="btn btn-outline-danger btn-sm">ปิด</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div id="pir-status-box" class="bg-normal shadow-sm">
+                <i id="pir-icon" class="fas fa-user-shield me-2"></i>
+                <span id="pir-text">สถานะปกติ: ไม่พบการเคลื่อนไหว</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="grid">
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  <!-- Soil -->
-  <div class="card">
-    <i class="bi bi-droplet-half"></i>
-    <h3>Soil Moisture</h3>
-    <p><span id="soil">--</span></p>
-  </div>
+    // *** ก๊อปปี้ Config จาก Firebase Console ของคุณมาวางตรงนี้ ***
+    const firebaseConfig = {
+        apiKey: "AIzaSyBOSFLS8ZdSPmtLCco90TEXV1Onk5rqpdk",
+        authDomain: "smart-haven-8b650.firebaseapp.com",
+        databaseURL: "https://smart-haven-8b650-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "smart-haven-8b650",
+        storageBucket: "smart-haven-8b650.appspot.com",
+        messagingSenderId: "xxxxxx",
+        appId: "xxxxxx"
+    };
 
-  <!-- Temperature -->
-  <div class="card">
-    <i class="bi bi-thermometer-half"></i>
-    <h3>Temperature</h3>
-    <p><span id="temp">--</span> °C</p>
-  </div>
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  <!-- Motion -->
-  <div class="card">
-    <i id="pirIcon" class="bi bi-person-check ok"></i>
-    <h3>Motion</h3>
-    <p id="pirText" class="ok">ปกติ</p>
-  </div>
-
-  <!-- Buzzer -->
-  <div class="card">
-    <i class="bi bi-volume-up"></i>
-    <h3>Sound Control</h3>
-    <button id="muteBtn" class="btn btn-off">🔊 เปิดเสียง</button>
-  </div>
-
-  <!-- Device Info -->
-  <div class="card device">
-    <h3>📟 Device Info</h3>
-    <p>Database: Firebase RTDB</p>
-    <p>Project: smart-haven-8b650</p>
-    <p>A0 → Soil Sensor</p>
-    <p>D5 → PIR</p>
-    <p>D6 → Buzzer</p>
-    <p>D4 / D7 → Switch</p>
-  </div>
-
-</div>
-
-<script>
-  // 🔥 Firebase Config
-  const firebaseConfig = {
-  apiKey: "AIzaSyBOSFLS8ZdSPmtLCco90TEXV1Onk5rqpdk",
-  authDomain: "test01-fe967.firebaseapp.com",
-  databaseURL: "https://test01-fe967-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "test01-fe967"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  // ===== Uptime =====
-  let startTime = Date.now();
-  setInterval(() => {
-    let diff = Math.floor((Date.now() - startTime) / 1000);
-    let h = String(Math.floor(diff / 3600)).padStart(2, '0');
-    let m = String(Math.floor(diff % 3600 / 60)).padStart(2, '0');
-    let s = String(diff % 60).padStart(2, '0');
-    document.getElementById("uptime").innerText = `${h}:${m}:${s}`;
-  }, 1000);
-
-  // ===== Firebase Listener =====
-  db.ref("sensor/soil").on("value", s => {
-    document.getElementById("soil").innerText = s.val();
-  });
-
-  db.ref("sensor/temperature").on("value", s => {
-    document.getElementById("temp").innerText = s.val();
-  });
-
-  db.ref("sensor/pir").on("value", s => {
-    const pir = s.val();
-    const icon = document.getElementById("pirIcon");
-    const text = document.getElementById("pirText");
-
-    if (pir) {
-      icon.className = "bi bi-person-x alert";
-      text.innerText = "ผิดปกติ (ตรวจพบการเคลื่อนไหว)";
-      text.className = "alert";
-    } else {
-      icon.className = "bi bi-person-check ok";
-      text.innerText = "ปกติ";
-      text.className = "ok";
-    }
-  });
-
-  db.ref("control/mute").on("value", s => {
-    const mute = s.val();
-    const btn = document.getElementById("muteBtn");
-    if (mute) {
-      btn.innerText = "🔇 ปิดเสียง";
-      btn.className = "btn btn-on";
-    } else {
-      btn.innerText = "🔊 เปิดเสียง";
-      btn.className = "btn btn-off";
-    }
-  });
-
-  document.getElementById("muteBtn").onclick = () => {
-    db.ref("control/mute").get().then(s => {
-      db.ref("control/mute").set(!s.val());
+    // ดึงข้อมูลจาก Path "sensor"
+    const sensorRef = ref(db, 'sensor');
+    onValue(sensorRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            document.getElementById('temp-val').innerText = data.temperature + " °C";
+            document.getElementById('humi-val').innerText = data.humidity + " %";
+            document.getElementById('soil-val').innerText = data.soil;
+            
+            // อัปเดต PIR Status
+            const pirBox = document.getElementById('pir-status-box');
+            const pirText = document.getElementById('pir-text');
+            const pirIcon = document.getElementById('pir-icon');
+            
+            if (data.pir === true) {
+                pirBox.className = "bg-alert";
+                pirText.innerText = "ผิดปกติ: ตรวจพบการเคลื่อนไหว!";
+                pirIcon.className = "fas fa-running me-2";
+            } else {
+                pirBox.className = "bg-normal";
+                pirText.innerText = "สถานะปกติ: ไม่พบการเคลื่อนไหว";
+                pirIcon.className = "fas fa-user-shield me-2";
+            }
+        }
     });
-  };
 
-  db.ref("status/online").on("value", s => {
-    document.getElementById("connStatus").innerHTML =
-      s.val() ? "🟢 Online" : "🔴 Offline";
-    document.getElementById("connStatus").className =
-      s.val() ? "online" : "offline";
-  });
+    // ฟังก์ชันสั่ง Mute (เขียนค่ากลับไปที่ Firebase)
+    window.setMute = (val) => {
+        set(ref(db, 'control/mute'), val);
+        alert(val ? "ปิดเสียงแล้ว" : "เปิดเสียงแล้ว");
+    };
+
+    // แสดงเวลาปัจจุบัน
+    setInterval(() => {
+        document.getElementById('time').innerText = new Date().toLocaleString('th-TH');
+    }, 1000);
 </script>
 
 </body>
