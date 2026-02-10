@@ -1,3 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Haven | IoT Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Kanit', sans-serif; background: #f0f4f8; color: #2d3436; }
+        .dashboard-container { max-width: 1000px; margin: 30px auto; }
+        .sensor-card {
+            border: none; border-radius: 20px; background: white;
+            transition: all 0.3s ease; box-shadow: 0 8px 15px rgba(0,0,0,0.05);
+            position: relative; overflow: hidden;
+        }
+        .status-header { border-radius: 15px; padding: 15px 25px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .online-status { color: #2ecc71; font-weight: 600; }
+        .offline-status { color: #e74c3c; font-weight: 600; }
+        .value-text { font-size: 2.8rem; font-weight: 600; margin: 10px 0; }
+        .unit-text { font-size: 1.2rem; color: #636e72; }
+        .border-normal { border-bottom: 6px solid #2ecc71; }
+        .border-alert { border-bottom: 6px solid #e74c3c; background-color: #fff5f5 !important; }
+        .motion-active { background: #ff7675 !important; color: white !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        .form-check-input { width: 3em; height: 1.5em; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container dashboard-container">
+    <div class="status-header bg-white shadow-sm">
+        <div>
+            <h4 class="mb-0 fw-bold text-primary">HAVEN SYSTEM</h4>
+            <small class="text-muted"><i class="fas fa-microchip me-1"></i> ESP8266 Monitoring</small>
+        </div>
+        <div id="connectionBox">
+            <span id="statusIcon" class="fas fa-circle offline-status"></span>
+            <span id="statusText" class="offline-status"> กำลังตรวจสอบการเชื่อมต่อ...</span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card sensor-card p-4 text-center border-normal" id="tempCard">
+                <i class="fas fa-temperature-high fa-2x text-warning mb-2"></i>
+                <div class="text-muted">อุณหภูมิอากาศ</div>
+                <div class="value-text"><span id="tempVal">--</span><span class="unit-text">°C</span></div>
+                <div id="tempAlert"></div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card sensor-card p-4 text-center border-normal" id="humiCard">
+                <i class="fas fa-water fa-2x text-info mb-2"></i>
+                <div class="text-muted">ความชื้นอากาศ</div>
+                <div class="value-text"><span id="humiVal">--</span><span class="unit-text">%</span></div>
+                <div id="humiAlert"></div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card sensor-card p-4 text-center border-normal" id="soilCard">
+                <i class="fas fa-seedling fa-2x text-success mb-2"></i>
+                <div class="text-muted">ความชื้นในดิน</div>
+                <div class="value-text"><span id="soilVal">--</span><span class="unit-text">%</span></div>
+                <div id="soilAlert"></div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card sensor-card p-4 h-100 d-flex flex-row align-items-center justify-content-around" id="motionCard">
+                <div id="motionIconWrapper">
+                    <i id="motionIcon" class="fas fa-shield-alt fa-4x text-success"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-1">สถานะความปลอดภัย</h5>
+                    <h3 id="motionText" class="text-success fw-bold">ปกติ: ปลอดภัย</h3>
+                    <p class="text-muted mb-0" id="motionSub">ไม่พบความเคลื่อนไหวในพื้นที่</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card sensor-card p-4 h-100 text-center d-flex flex-column justify-content-center">
+                <i class="fas fa-volume-up fa-2x text-secondary mb-3"></i>
+                <h5 class="fw-bold">ระบบแจ้งเตือนเสียง</h5>
+                <div class="form-check form-switch d-flex justify-content-center py-2">
+                    <input class="form-check-input" type="checkbox" id="muteToggle">
+                </div>
+                <div id="muteStatusText" class="fw-bold text-success">เปิดใช้งานเสียง</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
 <script>
     // 1. Firebase Config
     const firebaseConfig = {
@@ -6,109 +107,104 @@
         projectId: "smart-haven02",
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // ป้องกันหน้าขาวจาก Error ตอนเริ่มต้น
+    try {
+        firebase.initializeApp(firebaseConfig);
+    } catch (e) {
+        console.error("Firebase init error:", e);
+    }
 
-    // 2. เกณฑ์มาตรฐาน (ปรับเปลี่ยนได้ตามต้องการ)
+    const db = firebase.database();
+    let lastActive = 0;
+
     const LIMITS = {
         temp: { min: 20, max: 35 },
         humi: { min: 40, max: 80 },
-        soil: { min: 30, max: 80 } 
+        soil: { min: 30, max: 80 }
     };
 
-    let lastActive = Date.now();
-
-    // 3. ฟังชั่นดึงข้อมูลและอัปเดต UI
+    // 2. ดึงข้อมูลจาก Firebase
     db.ref('sensor').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            lastActive = Date.now();
-            updateDisplay(data);
+        try {
+            const data = snapshot.val();
+            if (data) {
+                lastActive = Date.now();
+                updateUI(data);
+                updateConnectionStatus(true);
+            }
+        } catch (err) {
+            console.error("Data update error:", err);
         }
+    }, (error) => {
+        console.error("Firebase Read Error:", error);
     });
 
-    function updateDisplay(data) {
-        // --- อุณหภูมิ ---
-        document.getElementById('tempVal').innerText = data.temperature;
-        validateValue('temp', data.temperature, 'tempAlert', 'tempCard');
+    function updateUI(data) {
+        // อัปเดตตัวเลข
+        document.getElementById('tempVal').innerText = data.temperature || 0;
+        document.getElementById('humiVal').innerText = data.humidity || 0;
+        document.getElementById('soilVal').innerText = data.soil || 0;
 
-        // --- ความชื้นอากาศ ---
-        document.getElementById('humiVal').innerText = data.humidity;
-        validateValue('humi', data.humidity, 'humiAlert', 'humiCard');
+        // ตรวจสอบค่ามาตรฐาน
+        checkLimit('temp', data.temperature, 'tempAlert', 'tempCard');
+        checkLimit('humi', data.humidity, 'humiAlert', 'humiCard');
+        checkLimit('soil', data.soil, 'soilAlert', 'soilCard');
 
-        // --- ความชื้นดิน (ใช้ค่า % จาก Arduino โดยตรง) ---
-        const soilPercent = data.soil; 
-        document.getElementById('soilVal').innerText = soilPercent;
-        validateValue('soil', soilPercent, 'soilAlert', 'soilCard');
+        // สถานะ Mute
+        const muteToggle = document.getElementById('muteToggle');
+        const muteText = document.getElementById('muteStatusText');
+        muteToggle.checked = data.mute_status;
+        if (data.mute_status) {
+            muteText.innerText = "ระบบถูกปิดเสียง";
+            muteText.className = "fw-bold text-danger";
+        } else {
+            muteText.innerText = "เปิดใช้งานเสียง";
+            muteText.className = "fw-bold text-success";
+        }
 
-        // --- ตรวจจับความเคลื่อนไหว (PIR) ---
+        // PIR Motion
         const mCard = document.getElementById('motionCard');
         const mText = document.getElementById('motionText');
         const mIcon = document.getElementById('motionIcon');
-        const mSub = document.getElementById('motionSub');
-
         if (data.pir) {
-            mCard.className = "card sensor-card p-4 h-100 d-flex flex-row align-items-center justify-content-around motion-active shadow";
-            mText.innerText = "ผิดปกติ: มีความเคลื่อนไหว!";
+            mCard.classList.add('motion-active');
+            mText.innerText = "ผิดปกติ: ตรวจพบคน!";
             mText.className = "text-white fw-bold";
             mIcon.className = "fas fa-running fa-4x text-white";
-            mSub.innerText = "ตรวจพบสิ่งผิดปกติในพื้นที่!";
-            mSub.className = "text-white opacity-75";
         } else {
-            mCard.className = "card sensor-card p-4 h-100 d-flex flex-row align-items-center justify-content-around bg-white border-normal";
+            mCard.classList.remove('motion-active');
             mText.innerText = "ปกติ: ปลอดภัย";
             mText.className = "text-success fw-bold";
             mIcon.className = "fas fa-shield-alt fa-4x text-success";
-            mSub.innerText = "ไม่พบความเคลื่อนไหวในพื้นที่";
-            mSub.className = "text-muted";
-        }
-
-        // --- ปุ่มปิด/เปิดเสียง (รองรับการ Sync จากปุ่มบนบอร์ด) ---
-        const muteToggle = document.getElementById('muteToggle');
-        const muteText = document.getElementById('muteStatusText');
-        
-        // อัปเดตสถานะตัวสวิตช์บนเว็บให้ตรงกับค่าใน Firebase
-        muteToggle.checked = data.mute_status;
-        
-        if (data.mute_status) {
-            muteText.innerText = "ระบบถูกปิดเสียง (Muted)";
-            muteText.className = "fw-bold text-danger";
-        } else {
-            muteText.innerText = "เปิดใช้งานเสียง (Active)";
-            muteText.className = "fw-bold text-success";
         }
     }
 
-    // ฟังก์ชันตรวจสอบค่ามาตรฐานและแสดงสีแดงเมื่อผิดปกติ
-    function validateValue(type, val, alertId, cardId) {
+    function checkLimit(type, val, alertId, cardId) {
         const alertEl = document.getElementById(alertId);
         const cardEl = document.getElementById(cardId);
-        
-        if (val > LIMITS[type].max) {
-            alertEl.innerHTML = `<span class="badge bg-danger">ค่านี้สูงกว่ามาตรฐาน</span>`;
-            cardEl.className = "card sensor-card p-4 text-center border-alert";
-        } else if (val < LIMITS[type].min) {
-            alertEl.innerHTML = `<span class="badge bg-danger">ค่านี้ต่ำกว่ามาตรฐาน</span>`;
-            cardEl.className = "card sensor-card p-4 text-center border-alert";
+        if (val > LIMITS[type].max || val < LIMITS[type].min) {
+            alertEl.innerHTML = `<span class="badge bg-danger">ผิดปกติ</span>`;
+            cardEl.classList.add('border-alert');
+            cardEl.classList.remove('border-normal');
         } else {
             alertEl.innerHTML = `<span class="badge bg-success">ปกติ</span>`;
-            cardEl.className = "card sensor-card p-4 text-center border-normal";
+            cardEl.classList.add('border-normal');
+            cardEl.classList.remove('border-alert');
         }
     }
 
-    // 4. ส่งค่าจากปุ่มหน้าเว็บ กลับไปยัง Firebase
+    // ส่งค่า Mute กลับไป Firebase
     document.getElementById('muteToggle').addEventListener('change', (e) => {
-        // อัปเดตเฉพาะค่า mute_status เพื่อให้ Arduino ดึงไปใช้
         db.ref('sensor/mute_status').set(e.target.checked);
     });
 
-    // 5. ระบบตรวจสอบสถานะออนไลน์ (Offline Detection)
-    function checkConnection() {
-        const now = Date.now();
+    // ตรวจสอบสถานะการเชื่อมต่อ (Offline Detection)
+    function updateConnectionStatus() {
         const statusIcon = document.getElementById('statusIcon');
         const statusText = document.getElementById('statusText');
+        const diff = Date.now() - lastActive;
 
-        if (now - lastActive < 20000) { // ถ้าข้อมูลขาดหายเกิน 20 วินาที
+        if (lastActive !== 0 && diff < 15000) { // ถ้าข้อมูลอัปเดตล่าสุดไม่เกิน 15 วินาที
             statusIcon.className = "fas fa-circle online-status";
             statusText.innerText = " ONLINE";
             statusText.className = "online-status";
@@ -118,5 +214,8 @@
             statusText.className = "offline-status";
         }
     }
-    setInterval(checkConnection, 5000); 
+    setInterval(updateConnectionStatus, 5000);
 </script>
+
+</body>
+</html>
