@@ -3,87 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Haven | Pro Dashboard</title>
+    <title>Smart Haven | Monitoring Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Kanit', sans-serif; background-color: #f4f7f6; color: #333; }
-        .card { border: none; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: 0.3s; }
-        .sensor-card { min-height: 180px; }
-        .status-badge { padding: 8px 16px; border-radius: 50px; font-weight: 600; font-size: 0.9rem; }
-        .val-display { font-size: 2.5rem; font-weight: 600; line-height: 1; margin: 10px 0; }
-        .alert-hint { font-size: 0.85rem; font-weight: 500; }
-        .bg-normal { background: #fff; }
-        .bg-danger-soft { background: #fff5f5; border: 2px solid #ff4d4d !important; }
-        .bg-success-soft { background: #f5fff6; border: 2px solid #28a745 !important; }
-        .motion-icon { font-size: 4rem; transition: 0.5s; }
-        .offline { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
+        body { font-family: 'Kanit', sans-serif; background: #f8f9fa; color: #2d3436; }
+        .dashboard-container { max-width: 900px; margin: 40px auto; }
+        
+        .sensor-card {
+            border: none; border-radius: 25px; background: white;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            position: relative; overflow: hidden;
+        }
+        
+        .status-header { background: white; border-radius: 20px; padding: 20px 30px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .online-status { color: #2ecc71; font-weight: 600; }
+        .offline-status { color: #e74c3c; font-weight: 600; }
+        
+        .value-text { font-size: 3rem; font-weight: 600; margin: 5px 0; }
+        .unit-text { font-size: 1.2rem; color: #b2bec3; margin-left: 5px; }
+
+        .border-normal { border-top: 8px solid #2ecc71; }
+        .border-alert { border-top: 8px solid #e74c3c; background-color: #fffafa !important; }
+        
+        .motion-active { background: #d63031 !important; color: white !important; transform: scale(1.02); }
+        .motion-icon { font-size: 4.5rem; }
+        
+        .alert-hint { font-size: 0.9rem; font-weight: 600; border-radius: 50px; padding: 4px 15px; display: inline-block; }
+        .hint-red { background: #ffebeb; color: #e74c3c; }
+        .hint-green { background: #ebffef; color: #2ecc71; }
     </style>
 </head>
 <body>
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded-4 shadow-sm">
+<div class="container dashboard-container">
+    <div class="status-header">
         <div>
-            <h4 class="mb-0 fw-bold text-primary"><i class="fas fa-leaf me-2"></i>SMART HAVEN MONITOR</h4>
-            <small class="text-muted">ID: ESP8266_HAVEN_02</small>
+            <h3 class="mb-0 fw-bold text-dark">🌿 Smart Haven</h3>
+            <p class="text-muted mb-0 small"><i class="fas fa-microchip me-1"></i> ESP8266 Monitoring System</p>
         </div>
-        <div id="connStatus">
-            <span class="status-badge bg-danger text-white" id="statusLabel"><i class="fas fa-wifi me-2"></i>OFFLINE</span>
+        <div id="connectionStatus">
+            <i id="statusDot" class="fas fa-circle online-status"></i>
+            <span id="statusText" class="online-status"> กำลังตรวจสอบ...</span>
         </div>
     </div>
 
-    <div class="row g-4" id="mainDashboard">
+    <div class="row g-4">
         <div class="col-md-4">
-            <div class="card p-4 sensor-card text-center bg-normal" id="cardTemp">
-                <i class="fas fa-temperature-high fa-2x text-warning"></i>
-                <h6 class="mt-2 text-muted">อุณหภูมิ</h6>
-                <div class="val-display"><span id="tempVal">--</span><small style="font-size: 1.5rem">°C</small></div>
+            <div class="card sensor-card p-4 text-center border-normal" id="tempCard">
+                <i class="fas fa-thermometer-half fa-2x text-warning mb-2"></i>
+                <div class="fw-bold text-muted">อุณหภูมิ</div>
+                <div class="value-text"><span id="tempVal">--</span><span class="unit-text">°C</span></div>
                 <div id="tempAlert" class="alert-hint"></div>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card p-4 sensor-card text-center bg-normal" id="cardHumi">
-                <i class="fas fa-cloud-sun-rain fa-2x text-info"></i>
-                <h6 class="mt-2 text-muted">ความชื้นอากาศ</h6>
-                <div class="val-display"><span id="humiVal">--</span><small style="font-size: 1.5rem">%</small></div>
+            <div class="card sensor-card p-4 text-center border-normal" id="humiCard">
+                <i class="fas fa-droplet fa-2x text-info mb-2"></i>
+                <div class="fw-bold text-muted">ความชื้นอากาศ</div>
+                <div class="value-text"><span id="humiVal">--</span><span class="unit-text">%</span></div>
                 <div id="humiAlert" class="alert-hint"></div>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card p-4 sensor-card text-center bg-normal" id="cardSoil">
-                <i class="fas fa-faucet-drip fa-2x text-primary"></i>
-                <h6 class="mt-2 text-muted">ความชื้นในดิน</h6>
-                <div class="val-display"><span id="soilVal">--</span><small style="font-size: 1.5rem">%</small></div>
+            <div class="card sensor-card p-4 text-center border-normal" id="soilCard">
+                <i class="fas fa-seedling fa-2x text-success mb-2"></i>
+                <div class="fw-bold text-muted">ความชื้นในดิน</div>
+                <div class="value-text"><span id="soilVal">--</span><span class="unit-text">%</span></div>
                 <div id="soilAlert" class="alert-hint"></div>
             </div>
         </div>
 
-        <div class="col-md-8">
-            <div class="card p-4 h-100 d-flex flex-row align-items-center justify-content-around bg-normal" id="cardMotion">
-                <div class="text-center">
-                    <i id="motionIcon" class="fas fa-user-shield motion-icon text-success"></i>
+        <div class="col-12">
+            <div class="card sensor-card p-5 d-flex flex-column flex-md-row align-items-center justify-content-center" id="motionCard">
+                <div class="me-md-5 mb-4 mb-md-0">
+                    <i id="motionIcon" class="fas fa-user-check motion-icon text-success"></i>
                 </div>
-                <div class="ps-4">
-                    <h5 class="fw-bold">สถานะความเคลื่อนไหว (PIR)</h5>
-                    <h3 id="motionText" class="text-success fw-bold">ปกติ: ไม่พบสิ่งเคลื่อนไหว</h3>
-                    <p class="text-muted mb-0 small">ระบบเฝ้าระวังทำงานอัตโนมัติ</p>
+                <div class="text-center text-md-start">
+                    <h2 class="fw-bold mb-1">ระบบตรวจจับความเคลื่อนไหว</h2>
+                    <h4 id="motionText" class="text-success fw-bold">สถานะปกติ: ไม่พบสิ่งผิดปกติ</h4>
+                    <p class="mb-0 opacity-75" id="motionSub">เซนเซอร์ PIR พร้อมทำงาน</p>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card p-4 h-100 text-center">
-                <i class="fas fa-volume-up fa-2x mb-3 text-secondary"></i>
-                <h5>ควบคุมเสียงเตือน</h5>
-                <div class="form-check form-switch d-flex justify-content-center mt-3">
-                    <input class="form-check-input" type="checkbox" id="muteToggle" style="width: 3.5em; height: 1.8em;">
-                </div>
-                <label class="mt-2 fw-bold" for="muteToggle" id="muteLabel">สถานะ: เปิดเสียง</label>
             </div>
         </div>
     </div>
@@ -102,104 +107,91 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // เกณฑ์มาตรฐาน
-    const RULES = {
-        temp: { max: 35, min: 20 },
-        humi: { max: 80, min: 40 },
-        soil: { min: 30 } // ต่ำกว่า 30% คือดินแห้ง
+    const LIMITS = {
+        temp: { min: 20, max: 35 },
+        humi: { min: 40, max: 80 },
+        soil: { min: 30, max: 80 }
     };
 
-    let lastActive = 0;
+    let lastHeartbeat = Date.now();
 
     db.ref('sensor').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            updateDashboard(data);
-            lastActive = Date.now();
-            checkOnline();
+            lastHeartbeat = Date.now();
+            updateUI(data);
+            updateConnectionStatus(true);
         }
     });
 
-    function updateDashboard(data) {
-        // 1. อุณหภูมิ
-        const t = data.temperature;
-        document.getElementById('tempVal').innerText = t;
-        handleAlert('temp', t, 'tempAlert', 'cardTemp');
+    function updateUI(data) {
+        // อุณหภูมิ
+        document.getElementById('tempVal').innerText = data.temperature;
+        checkLimit('temp', data.temperature, 'tempAlert', 'tempCard');
 
-        // 2. ความชื้นอากาศ
-        const h = data.humidity;
-        document.getElementById('humiVal').innerText = h;
-        handleAlert('humi', h, 'humiAlert', 'cardHumi');
+        // ความชื้นอากาศ
+        document.getElementById('humiVal').innerText = data.humidity;
+        checkLimit('humi', data.humidity, 'humiAlert', 'humiCard');
 
-        // 3. ความชื้นดิน (%)
-        // สูตรแปลง: (1024 - ค่าที่อ่านได้) / (1024 - 200) * 100
-        let sPercent = Math.round(((1024 - data.soil) / (1024 - 200)) * 100);
-        if(sPercent > 100) sPercent = 100; if(sPercent < 0) sPercent = 0;
-        document.getElementById('soilVal').innerText = sPercent;
-        handleAlert('soil', sPercent, 'soilAlert', 'cardSoil');
+        // ความชื้นดิน (แปลง % จากค่า Analog 200-1024)
+        let soilPct = Math.round(((1024 - data.soil) / (1024 - 200)) * 100);
+        soilPct = Math.max(0, Math.min(100, soilPct));
+        document.getElementById('soilVal').innerText = soilPct;
+        checkLimit('soil', soilPct, 'soilAlert', 'soilCard');
 
-        // 4. PIR Motion
-        const mCard = document.getElementById('cardMotion');
+        // Motion PIR
+        const mCard = document.getElementById('motionCard');
         const mText = document.getElementById('motionText');
         const mIcon = document.getElementById('motionIcon');
-        if (data.pir) {
-            mCard.className = "card p-4 h-100 d-flex flex-row align-items-center justify-content-around bg-danger-soft";
-            mText.innerText = "ผิดปกติ: พบการเคลื่อนไหว!";
-            mText.className = "text-danger fw-bold";
-            mIcon.className = "fas fa-running motion-icon text-danger";
-        } else {
-            mCard.className = "card p-4 h-100 d-flex flex-row align-items-center justify-content-around bg-success-soft";
-            mText.innerText = "ปกติ: ไม่พบสิ่งเคลื่อนไหว";
-            mText.className = "text-success fw-bold";
-            mIcon.className = "fas fa-user-shield motion-icon text-success";
-        }
+        const mSub = document.getElementById('motionSub');
 
-        // 5. Mute Status
-        document.getElementById('muteToggle').checked = data.mute_status;
-        document.getElementById('muteLabel').innerText = data.mute_status ? "สถานะ: ปิดเสียง" : "สถานะ: เปิดเสียง";
+        if (data.pir) {
+            mCard.className = "card sensor-card p-5 d-flex flex-column flex-md-row align-items-center justify-content-center motion-active";
+            mText.innerText = "เตือนภัย: พบการเคลื่อนไหว!";
+            mIcon.className = "fas fa-running motion-icon text-white";
+            mSub.innerText = "มีการขยับเขยื้อนในบริเวณเซนเซอร์";
+            mText.className = "text-white fw-bold";
+        } else {
+            mCard.className = "card sensor-card p-5 d-flex flex-column flex-md-row align-items-center justify-content-center bg-white";
+            mText.innerText = "สถานะปกติ: ไม่พบสิ่งผิดปกติ";
+            mIcon.className = "fas fa-user-check motion-icon text-success";
+            mSub.innerText = "เซนเซอร์ PIR พร้อมทำงาน";
+            mText.className = "text-success fw-bold";
+        }
     }
 
-    function handleAlert(type, val, alertId, cardId) {
+    function checkLimit(type, val, alertId, cardId) {
         const el = document.getElementById(alertId);
         const card = document.getElementById(cardId);
-        let msg = "ปกติ";
-        let color = "text-success";
-        let isCritical = false;
-
-        if (type === 'soil') {
-            if (val < RULES.soil.min) { msg = "ความชื้นดินต่ำกว่ามาตรฐาน"; color = "text-danger"; isCritical = true; }
-        } else {
-            if (val > RULES[type].max) { msg = "ค่านี้สูงกว่ามาตรฐาน"; color = "text-danger"; isCritical = true; }
-            else if (val < RULES[type].min) { msg = "ค่านี้ต่ำกว่ามาตรฐาน"; color = "text-danger"; isCritical = true; }
-        }
-
-        el.innerHTML = msg;
-        el.className = `alert-hint ${color}`;
-        card.style.border = isCritical ? "2px solid #ff4d4d" : "none";
-    }
-
-    // ฟังก์ชันสั่งงานกลับ
-    document.getElementById('muteToggle').addEventListener('change', (e) => {
-        db.ref('sensor').update({ mute_status: e.target.checked });
-    });
-
-    // ตรวจสอบ Online/Offline
-    function checkOnline() {
-        const diff = Date.now() - lastActive;
-        const label = document.getElementById('statusLabel');
-        const dash = document.getElementById('mainDashboard');
         
-        if (diff < 30000) { // 30 วินาที
-            label.className = "status-badge bg-success text-white";
-            label.innerHTML = '<i class="fas fa-check-circle me-2"></i>ONLINE';
-            dash.classList.remove('offline');
+        if (val > LIMITS[type].max) {
+            el.innerText = "สูงกว่ามาตรฐาน"; el.className = "alert-hint hint-red";
+            card.className = "card sensor-card p-4 text-center border-alert";
+        } else if (val < LIMITS[type].min) {
+            el.innerText = "ต่ำกว่ามาตรฐาน"; el.className = "alert-hint hint-red";
+            card.className = "card sensor-card p-4 text-center border-alert";
         } else {
-            label.className = "status-badge bg-danger text-white";
-            label.innerHTML = '<i class="fas fa-wifi me-2"></i>OFFLINE';
-            dash.classList.add('offline');
+            el.innerText = "ปกติ"; el.className = "alert-hint hint-green";
+            card.className = "card sensor-card p-4 text-center border-normal";
         }
     }
-    setInterval(checkOnline, 5000);
+
+    function updateConnectionStatus() {
+        const now = Date.now();
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        
+        if (now - lastHeartbeat < 25000) {
+            dot.className = "fas fa-circle online-status";
+            text.innerText = " ONLINE";
+            text.className = "online-status";
+        } else {
+            dot.className = "fas fa-circle offline-status";
+            text.innerText = " OFFLINE";
+            text.className = "offline-status";
+        }
+    }
+    setInterval(updateConnectionStatus, 5000);
 </script>
 </body>
 </html>
