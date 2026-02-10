@@ -1,107 +1,193 @@
-// 1. นำเข้า Firebase Modules จาก CDN
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-// 2. การตั้งค่า Firebase (ใช้ข้อมูลจาก Project ของคุณ)
-const firebaseConfig = {
-    apiKey: "AIzaSyDgJ6fYKSNTwkinZXK0nDLt5YrvnIzM_wc",
-    authDomain: "smart-haven-8b650.firebaseapp.com",
-    databaseURL: "https://smart-haven-8b650-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "smart-haven-8b650",
-    storageBucket: "smart-haven-8b650.firebasestorage.app",
-    messagingSenderId: "481789063855",
-    appId: "1:481789063855:web:6cc6f9357f7b94f6f95a5a"
-};
-
-// เริ่มต้นการใช้งาน
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// --- [ฟังก์ชันหลัก: แสดงผลข้อมูล Sensor] ---
-const sensorRef = ref(db, 'sensor');
-onValue(sensorRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-        // แสดงค่าอุณหภูมิ ความชื้น และดิน
-        document.getElementById('temp-val').innerText = (data.temperature || 0).toFixed(1) + " °C";
-        document.getElementById('humi-val').innerText = (data.humidity || 0).toFixed(1) + " %";
-        document.getElementById('soil-val').innerText = data.soil || 0;
-
-        // จัดการสถานะการตรวจจับการเคลื่อนไหว (PIR)
-        const pirBox = document.getElementById('pir-status-box');
-        const pirText = document.getElementById('pir-text');
-        const pirIcon = document.getElementById('pir-icon');
-
-        if (data.pir === true) {
-            // เมื่อตรวจพบการเคลื่อนไหว (สีแดง + กะพริบ)
-            pirBox.className = "bg-alert"; // ใช้ class CSS ที่มีการทำ animation pulse-red
-            pirBox.style.backgroundColor = "#dc3545"; 
-            pirText.innerText = "ผิดปกติ: ตรวจพบการเคลื่อนไหว!";
-            pirIcon.className = "fas fa-running me-2";
-        } else {
-            // เมื่อสถานะปกติ (สีเขียว)
-            pirBox.className = "bg-normal shadow-sm";
-            pirBox.style.backgroundColor = "#28a745";
-            pirText.innerText = "สถานะปกติ: ไม่พบการเคลื่อนไหว";
-            pirIcon.className = "fas fa-user-shield me-2";
-        }
-    }
-});
-
-// --- [ฟังก์ชันควบคุม: เปิด-ปิดเสียง (Mute)] ---
-// 1. ส่งค่าไปยัง Firebase เมื่อคลิกปุ่ม
-window.setMute = (val) => {
-    const mutePath = ref(db, 'control/mute');
-    set(mutePath, val)
-        .then(() => {
-            console.log("Mute status updated to:", val);
-        })
-        .catch((error) => {
-            console.error("Error updating mute:", error);
-        });
-};
-
-// 2. ฟังค่าจาก Firebase เพื่ออัปเดตสถานะไอคอนบนหน้าเว็บ (Sync กับบอร์ด)
-const muteRef = ref(db, 'control/mute');
-onValue(muteRef, (snapshot) => {
-    const isMuted = snapshot.val();
-    const muteIcon = document.getElementById('mute-icon');
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Haven Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    if (isMuted) {
-        muteIcon.className = "fas fa-volume-mute stat-icon text-secondary";
-        console.log("System Status: Muted");
-    } else {
-        muteIcon.className = "fas fa-volume-up stat-icon text-warning";
-        console.log("System Status: Sound On");
-    }
-});
+    <style>
+        body { 
+            background-color: #f0f2f5; 
+            font-family: 'Kanit', sans-serif; 
+        }
+        /* ตกแต่ง Card ให้ดูทันสมัย */
+        .stat-card {
+            border: none;
+            border-radius: 20px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            background: white;
+            text-align: center;
+        }
+        .stat-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+        .icon-box { font-size: 3rem; margin-bottom: 15px; }
+        
+        /* สถานะความเคลื่อนไหว */
+        #pir-container {
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            transition: background-color 0.5s ease;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .status-normal { background-color: #28a745; } /* สีเขียว */
+        .status-alert { 
+            background-color: #dc3545; /* สีแดง */
+            animation: pulse-red 1s infinite; 
+        }
 
-// --- [ฟังก์ชันเสริม: เวลาและสถานะการเชื่อมต่อ] ---
-// แสดงเวลาปัจจุบัน (อัปเดตทุกวินาที)
-setInterval(() => {
-    const now = new Date();
-    document.getElementById('time').innerText = now.toLocaleString('th-TH', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+
+        .btn-control {
+            border-radius: 12px;
+            padding: 10px 25px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="fw-bold"><i class="fas fa-microchip text-primary"></i> Smart Haven Dashboard</h1>
+            <p id="connection-status" class="text-muted">
+                <i class="fas fa-circle text-success"></i> กำลังเชื่อมต่อกับอุปกรณ์...
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <h5 id="live-clock">--:--:--</h5>
+            <span class="badge bg-primary">Device: ESP8266</span>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="icon-box text-danger"><i class="fas fa-temperature-high"></i></div>
+                <div class="text-muted">อุณหภูมิ</div>
+                <h2 id="temp-display" class="fw-bold">-- °C</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="icon-box text-primary"><i class="fas fa-cloud-sun-rain"></i></div>
+                <div class="text-muted">ความชื้นอากาศ</div>
+                <h2 id="humi-display" class="fw-bold">-- %</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="icon-box text-success"><i class="fas fa-seedling"></i></div>
+                <div class="text-muted">ความชื้นในดิน</div>
+                <h2 id="soil-display" class="fw-bold">--</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div id="mute-icon-box" class="icon-box text-warning"><i class="fas fa-volume-up"></i></div>
+                <div class="text-muted mb-2">ระบบเสียงแจ้งเตือน</div>
+                <div class="d-flex justify-content-center gap-2">
+                    <button onclick="updateMute(false)" class="btn btn-success btn-control">เปิด</button>
+                    <button onclick="updateMute(true)" class="btn btn-danger btn-control">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div id="pir-container" class="status-normal shadow-lg">
+                <i id="pir-icon" class="fas fa-shield-alt fa-2x mb-3"></i>
+                <div id="pir-text">สถานะอุปกรณ์ปกติ: ไม่พบสิ่งเคลื่อนไหว</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // ข้อมูลจาก Firebase ของคุณ
+    const firebaseConfig = {
+        apiKey: "AIzaSyBOSFLS8ZdSPmtLCco90TEXV1Onk5rqpdk",
+        authDomain: "smart-haven-8b650.firebaseapp.com",
+        databaseURL: "https://smart-haven-8b650-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "smart-haven-8b650",
+        storageBucket: "smart-haven-8b650.appspot.com",
+        messagingSenderId: "774945137549",
+        appId: "1:774945137549:web:xxxxxx" // **อย่าลืมนำค่าจริงมาใส่ที่นี่**
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // 1. รับข้อมูลจาก Sensor
+    const sensorRef = ref(db, 'sensor');
+    onValue(sensorRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            document.getElementById('temp-display').innerText = data.temperature + " °C";
+            document.getElementById('humi-display').innerText = data.humidity + " %";
+            document.getElementById('soil-display').innerText = data.soil;
+            
+            const pirContainer = document.getElementById('pir-container');
+            const pirText = document.getElementById('pir-text');
+            const pirIcon = document.getElementById('pir-icon');
+
+            if (data.pir === true) {
+                pirContainer.className = "status-alert shadow-lg";
+                pirText.innerText = "แจ้งเตือน: พบการเคลื่อนไหวผิดปกติ!";
+                pirIcon.className = "fas fa-exclamation-triangle fa-2x mb-3";
+            } else {
+                pirContainer.className = "status-normal shadow-lg";
+                pirText.innerText = "สถานะอุปกรณ์ปกติ: ไม่พบสิ่งเคลื่อนไหว";
+                pirIcon.className = "fas fa-shield-alt fa-2x mb-3";
+            }
+        }
     });
-}, 1000);
 
-// ตรวจสอบสถานะ Online ของบอร์ด (อ้างอิงจาก Path ในรูปของคุณ)
-const onlineRef = ref(db, 'status/online');
-onValue(onlineRef, (snapshot) => {
-    const isOnline = snapshot.val();
-    const statusIndicator = document.querySelector('.status-indicator');
-    const statusText = document.querySelector('.text-muted.mb-0');
+    // 2. รับข้อมูลสถานะ Online
+    const statusRef = ref(db, 'status/online');
+    onValue(statusRef, (snapshot) => {
+        const isOnline = snapshot.val();
+        const statusEl = document.getElementById('connection-status');
+        if (isOnline) {
+            statusEl.innerHTML = '<i class="fas fa-circle text-success"></i> อุปกรณ์เชื่อมต่ออยู่ (Online)';
+        } else {
+            statusEl.innerHTML = '<i class="fas fa-circle text-danger"></i> อุปกรณ์ขาดการติดต่อ (Offline)';
+        }
+    });
 
-    if (isOnline) {
-        statusIndicator.className = "status-indicator bg-success";
-        statusText.innerHTML = '<span class="status-indicator bg-success"></span> อุปกรณ์ออนไลน์';
-    } else {
-        statusIndicator.className = "status-indicator bg-danger";
-        statusText.innerHTML = '<span class="status-indicator bg-danger"></span> อุปกรณ์ขาดการติดต่อ';
-    }
-});
+    // 3. ฟังก์ชันสั่งงาน Mute
+    window.updateMute = (state) => {
+        set(ref(db, 'control/mute'), state);
+        const iconBox = document.getElementById('mute-icon-box');
+        if (state) {
+            iconBox.className = "icon-box text-secondary";
+            iconBox.innerHTML = '<i class="fas fa-volume-mute"></i>';
+        } else {
+            iconBox.className = "icon-box text-warning";
+            iconBox.innerHTML = '<i class="fas fa-volume-up"></i>';
+        }
+    };
+
+    // นาฬิกา Real-time
+    setInterval(() => {
+        document.getElementById('live-clock').innerText = new Date().toLocaleTimeString('th-TH');
+    }, 1000);
+
+</script>
+</body>
+</html>
